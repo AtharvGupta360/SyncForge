@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    // Bundler resolution: Vite, not Node, resolves imports, so extensionless
+    // imports and package `exports` maps just work. This app is intentionally
+    // NOT part of the root `tsc --build` composite -- Vite builds it -- so it
+    // does not need the composite/NodeNext settings the libraries use.
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["src"]
+}

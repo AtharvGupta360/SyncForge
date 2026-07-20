@@ -23,3 +23,6 @@ export { apply, InvalidOperationError } from "./apply.js";
 
 export { accept, emptyDocument } from "./document.js";
 export type { AcceptResult, DocumentState } from "./document.js";
+
+export { transform } from "./transform.js";
+export type { Side } from "./transform.js";
