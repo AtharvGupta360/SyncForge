@@ -9,5 +9,9 @@
     "types": []
   },
   "include": ["src/**/*"],
+  // Test files are compiled by Vitest (via esbuild), not by `tsc --build`, so
+  // they stay out of dist/ and out of the pure-core purity contract -- they may
+  // import the `vitest` runtime, which the shipped code must never do.
+  "exclude": ["src/**/*.test.ts"],
   "references": [{ "path": "../shared" }]
 }

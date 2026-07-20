@@ -10,9 +10,11 @@
   },
   "dependencies": {
     "@syncforge/core": "*",
-    "@syncforge/shared": "*"
+    "@syncforge/shared": "*",
+    "socket.io": "^4.8.3"
   },
   "devDependencies": {
-    "@types/node": "^22.9.0"
+    "@types/node": "^22.9.0",
+    "socket.io-client": "^4.8.3"
   }
 }

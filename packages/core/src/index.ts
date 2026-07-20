@@ -18,3 +18,8 @@
  */
 
 export const CORE_PACKAGE = "@syncforge/core" as const;
+
+export { apply, InvalidOperationError } from "./apply.js";
+
+export { accept, emptyDocument } from "./document.js";
+export type { AcceptResult, DocumentState } from "./document.js";

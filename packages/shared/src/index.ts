@@ -6,9 +6,8 @@
  * than a runtime mystery.
  *
  * Rule: this package has no dependencies. Not on core, not on server, not on
- * any runtime library. It is types and constants only.
- *
- * The real protocol (operations, room state, socket events) is Phase 3.
+ * any runtime library. Types and constants only -- no logic, so there is
+ * nothing here that could disagree with itself at runtime.
  */
 
 /** Identifies a collaboration room. */
@@ -25,3 +24,23 @@ export type ClientId = string;
  * makes reconnect-and-catch-up possible in Phase 20.
  */
 export type Sequence = number;
+
+export type {
+  AuthoredOp,
+  DeleteOp,
+  DocumentVersion,
+  InsertOp,
+  Op,
+  OpId,
+} from "./ops.js";
+
+export type {
+  ClientMessage,
+  JoinRoomMessage,
+  OpAckMessage,
+  OpBroadcastMessage,
+  OpRejectMessage,
+  RoomSnapshotMessage,
+  ServerMessage,
+  SubmitOpMessage,
+} from "./protocol.js";

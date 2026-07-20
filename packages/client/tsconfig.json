@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    // No DOM lib and no @types/node yet, on purpose. Everything in this package
+    // so far is the *pure* half of the client -- the boundary translation -- so
+    // it must compile with nothing browser-specific in scope. When the actual
+    // Monaco/DOM shell arrives in the UI phase, DOM gets added then, and the
+    // pure files stay provably free of it.
+    "types": []
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.ts"],
+  // Depends only on the wire contract. The boundary produces `Op`s; it needs no
+  // core algorithm and no server. Keeping this reference list minimal is what
+  // makes "one file changes if Monaco changes" actually true.
+  "references": [{ "path": "../shared" }]
+}

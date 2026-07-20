@@ -10,6 +10,10 @@
     "types": ["node"]
   },
   "include": ["src/**/*"],
+  // Tests run under Vitest (esbuild), not `tsc --build`, so they stay out of
+  // dist/. They also import socket.io-client, a devDependency the shipped
+  // server must not pull in.
+  "exclude": ["src/**/*.test.ts"],
 
   // Declaring a reference does two things: it tells `tsc --build` to compile
   // these first, and it grants permission to import them. An import of a

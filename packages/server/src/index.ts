@@ -1,18 +1,22 @@
 /**
- * @syncforge/server
+ * @syncforge/server -- entrypoint.
  *
- * The imperative shell. All the messy, stateful, I/O-bound work lives here:
- * Socket.IO handlers, Postgres, the OpenAI client, process lifecycle.
+ * The imperative shell. All the messy, stateful, I/O-bound work lives in this
+ * package: WebSocket handlers (server.ts), and later Postgres and the OpenAI
+ * client. This file's only job is process lifecycle -- build the server and
+ * start listening. Everything interesting is one call away in server.ts and
+ * rooms.ts, and everything hard is another call away in core.
  *
- * The shell should stay boring. It receives bytes, calls into core, and sends
- * bytes back. When you find yourself writing an interesting algorithm in this
- * package, that is a signal it belongs in core instead -- where it can be
- * tested without a running server.
- *
- * HTTP framework is deliberately undecided at Phase 1; that call belongs to
- * Phase 7, when Socket.IO gets attached to an http.Server.
+ * Phase 1 left the HTTP framework undecided; Phase 7 decided it: Socket.IO on a
+ * bare http.Server (see server.ts for the trade vs raw WebSockets).
  */
 
-import { CORE_PACKAGE } from "@syncforge/core";
+import { createSyncForgeServer } from "./server.js";
 
-console.log(`syncforge server skeleton -- core linked: ${CORE_PACKAGE}`);
+const PORT = Number(process.env.PORT ?? 3001);
+
+const { httpServer } = createSyncForgeServer();
+
+httpServer.listen(PORT, () => {
+  console.log(`syncforge server listening on :${PORT}`);
+});
