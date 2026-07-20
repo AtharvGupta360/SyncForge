@@ -66,24 +66,16 @@ describe("RoomRegistry.submit", () => {
     });
   });
 
-  it("advances stored state so the next op must use the new baseVersion", () => {
+  it("advances the stored version across sequential submits", () => {
     const reg = new RoomRegistry();
     reg.join("room-1", "alice");
-    reg.submit("alice", submitInsert("room-1", 0, "ab", 0));
 
-    // Re-submitting against the now-stale version 0 is rejected...
-    const stale = reg.submit("alice", submitInsert("room-1", 2, "c", 0, "op-2"));
-    expect(stale).toMatchObject({
-      kind: "rejected",
-      reject: { reason: "stale-version" },
-    });
+    const first = reg.submit("alice", submitInsert("room-1", 0, "ab", 0));
+    expect(first).toMatchObject({ kind: "accepted", ack: { sequence: 1 } });
 
-    // ...but against the correct version 1 it is accepted at sequence 2.
-    const fresh = reg.submit("alice", submitInsert("room-1", 2, "c", 1, "op-3"));
-    expect(fresh).toMatchObject({
-      kind: "accepted",
-      ack: { sequence: 2 },
-    });
+    // Next op is written against the version the first established.
+    const second = reg.submit("alice", submitInsert("room-1", 2, "cd", 1, "op-2"));
+    expect(second).toMatchObject({ kind: "accepted", ack: { sequence: 2 } });
   });
 
   it("rejects a submission to a room that was never joined", () => {

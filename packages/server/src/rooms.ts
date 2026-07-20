@@ -113,11 +113,14 @@ export class RoomRegistry {
       broadcast: {
         kind: "op:broadcast",
         roomId: message.roomId,
-        // Today the broadcast op equals the submitted op, because `accept` only
-        // admits ops whose baseVersion already matches -- there is nothing to
-        // transform. Once transform lands (P13-16), `accept` will return the
-        // *effective* (transformed) op and this must switch to that, or peers
-        // apply coordinates that no longer fit their document.
+        // `accept` now rebases and returns the effective op(s) in `result.ops`.
+        // The wire still carries a single op, and this stays correct only because
+        // current clients never submit stale (they resync on concurrency), so
+        // `result.ops` is always exactly `[message.op]`.
+        //
+        // >>> Next phase: broadcast `result.ops` as a list so a rebased/split op
+        // reaches peers intact, and add client-side transform so a client with
+        // local edits can accept a broadcast instead of resyncing.
         op: message.op,
         authorId: clientId,
         sequence: result.sequence,

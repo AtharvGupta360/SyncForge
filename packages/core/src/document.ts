@@ -1,35 +1,34 @@
 /**
- * The document-state reducer -- the server's authority over ordering, as a pure
- * function.
+ * The document-state reducer -- the server's authority over ordering, now with
+ * concurrency support via history-based rebasing.
  *
- * Phase 4's apply() gave one operation behaviour but knew nothing about *order*,
- * *versions*, or *who decides what happened first*. This file is the object the
- * whole protocol keeps promising exists: a `DocumentState` that owns the
- * content and its version, plus `accept()`, which decides whether a submitted
- * edit becomes a fact and, if so, stamps it with the authoritative sequence
- * number.
+ * Phase 5 made this the sole authority on ordering but rejected any op whose
+ * `baseVersion` was behind the server. Phase 12 lifts that restriction: a stale
+ * op is REBASED -- transformed against the operations it missed -- and then
+ * accepted. That is what lets two clients edit the same version concurrently and
+ * still converge.
  *
- * It stays a PURE function in core on purpose. "The server is the sole authority
- * on ordering" (repeated all over protocol.ts) is a claim about *logic*, not
- * about sockets. Keeping that logic here means we can test total-ordering and
- * version rules with no server running -- and it lets the Socket.IO handler in
- * Phase 7 stay the boring shell it is supposed to be: decode bytes, call
- * accept(), send bytes.
+ * WHY A HISTORY
+ * -------------
+ * To transform an incoming op against what it missed, the server must still HAVE
+ * those ops. So state carries `history` -- every accepted op, in order -- with
+ * the invariant `version === history.length`. A submission written against
+ * `baseVersion = N` missed exactly `history[N..]`.
  *
- * VERSION vs SEQUENCE -- why two names for numbers that are equal here
- * -------------------------------------------------------------------
- * `version`  labels a STATE: how many operations this document has absorbed.
- * `sequence` labels an EVENT: this operation's slot in the room's total order.
+ * Crucially the history stores ops AS APPLIED (each already rebased when it was
+ * accepted), so every entry is written against the version just before it. The
+ * rebase fold relies on that: transforming the incoming op against `history[N]`,
+ * then that result against `history[N+1]`, and so on, keeps both operands
+ * written against the same version at every step.
  *
- * For a single linear document they are numerically identical -- the op that
- * takes the document from version N to N+1 *is* the (N+1)th event -- and this
- * model keeps them so. They are not merged into one field because they answer
- * different questions, and the wire protocol already commits to both:
- * `RoomSnapshotMessage.version` is a state label a client will later quote back
- * as its `baseVersion`, while `OpBroadcastMessage.sequence` is the ordinal a
- * reconnecting client uses to say "replay me everything after 41". Honest note:
- * this is a conceptual distinction, not a numeric one -- do not expect them to
- * diverge in this single-document design.
+ * VERSION vs SEQUENCE
+ * -------------------
+ * `version` labels a state (ops absorbed); `sequence` labels the resulting
+ * position in the total order. For a single document they still coincide -- both
+ * equal `history.length` -- but note one submission can add MORE than one op:
+ * a rebased delete can split around a concurrent insert, so `version` may jump by
+ * two. A fully-redundant op (deleting what was already deleted) rebases to
+ * nothing and advances neither.
  */
 
 import type {
@@ -40,39 +39,29 @@ import type {
 } from "@syncforge/shared";
 
 import { apply, InvalidOperationError } from "./apply.js";
+import { transform } from "./transform.js";
 
-/**
- * A document and the version it reflects. Immutable: `accept` returns a new one
- * rather than mutating, so a caller holding an old state still sees the old
- * document -- the same purity contract as apply, and what makes replay reasoning
- * sound when reconnect is built in Phase 20.
- */
 export interface DocumentState {
   readonly content: string;
   readonly version: DocumentVersion;
+  /** Every accepted op, in order. `version === history.length`, always. */
+  readonly history: readonly Op[];
 }
 
-/** The starting point for a fresh room: empty text at version 0. */
+/** A fresh room: empty text, version 0, no history. */
 export function emptyDocument(): DocumentState {
-  return { content: "", version: 0 };
+  return { content: "", version: 0, history: [] };
 }
 
-/**
- * The outcome of submitting an operation.
- *
- * A discriminated union on `status`, so callers must handle both arms and the
- * shell can map an `accepted` result to `op:ack` + `op:broadcast` and a
- * `rejected` result to `op:reject` without guessing. `reason` reuses the exact
- * union from `OpRejectMessage`, so the set of refusals stays defined in one
- * place -- the wire protocol.
- */
 export type AcceptResult =
   | {
       readonly status: "accepted";
-      /** The new document state after applying the op. */
       readonly state: DocumentState;
-      /** This op's authoritative slot in the total order (== state.version). */
+      /** The room's version after this submission (== new history length). */
       readonly sequence: Sequence;
+      /** The effective op(s) actually applied -- rebased, possibly split, maybe
+       *  empty. These, not the raw submission, are what peers must receive. */
+      readonly ops: readonly Op[];
     }
   | {
       readonly status: "rejected";
@@ -80,40 +69,46 @@ export type AcceptResult =
     };
 
 /**
- * Decide whether `op` -- submitted as written against `baseVersion` -- may join
- * the document's history, and if so produce the next state.
+ * Transform `op` forward across the ops it missed, returning the effective op(s)
+ * in the current coordinate system. `op` is always the newer, "right" side.
+ */
+function rebase(op: Op, missed: readonly Op[]): Op[] {
+  let ops: Op[] = [op];
+  for (const historic of missed) {
+    ops = ops.flatMap((o) => transform(o, historic, "right"));
+  }
+  return ops;
+}
+
+/**
+ * Admit `op` (written against `baseVersion`) into the document's history and
+ * produce the next state.
  *
- * Two gates, in order:
- *
- *   1. CAUSALITY. `baseVersion` must equal the current version. If it is behind,
- *      the client edited against a document the server has since moved past, so
- *      the op's coordinates may be stale -- reconciling that is operational
- *      transform, which arrives in Phases 13-16. Until then the only safe answer
- *      is a `stale-version` reject, and the client re-syncs from a snapshot. A
- *      `baseVersion` *ahead* of the server names a version that was never issued;
- *      it is impossible rather than merely stale, and is refused the same way.
- *
- *      >>> Deferred, not forgotten: when transform lands, the `baseVersion <
- *      version` branch stops being a reject and becomes "transform the op
- *      against operations version..current, then accept the transformed op."
- *
- *   2. VALIDITY. Even against the right version, the op's coordinates must fit
- *      the document. apply() is the authority on that; if it throws
- *      InvalidOperationError we translate to an `invalid-op` reject. Any other
- *      throw is a real bug and is intentionally left to propagate and crash.
+ *   - `baseVersion` outside `[0, version]` is impossible -> `stale-version`.
+ *   - otherwise rebase against `history[baseVersion..]`, then apply. If any
+ *     rebased piece does not fit the document, the op is `invalid-op`.
  */
 export function accept(
   state: DocumentState,
   op: Op,
   baseVersion: DocumentVersion,
 ): AcceptResult {
-  if (baseVersion !== state.version) {
+  if (
+    !Number.isInteger(baseVersion) ||
+    baseVersion < 0 ||
+    baseVersion > state.version
+  ) {
     return { status: "rejected", reason: "stale-version" };
   }
 
-  let content: string;
+  const missed = state.history.slice(baseVersion);
+  const effective = rebase(op, missed);
+
+  let content = state.content;
   try {
-    content = apply(state.content, op);
+    for (const piece of effective) {
+      content = apply(content, piece);
+    }
   } catch (error) {
     if (error instanceof InvalidOperationError) {
       return { status: "rejected", reason: "invalid-op" };
@@ -121,12 +116,11 @@ export function accept(
     throw error;
   }
 
-  const version = state.version + 1;
+  const history = [...state.history, ...effective];
   return {
     status: "accepted",
-    state: { content, version },
-    // Equal to the new version by construction; see the header note on why the
-    // two names are kept distinct even though the numbers coincide.
-    sequence: version,
+    state: { content, version: history.length, history },
+    sequence: history.length,
+    ops: effective,
   };
 }

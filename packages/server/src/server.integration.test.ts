@@ -98,7 +98,7 @@ describe("transport", () => {
     }
   });
 
-  it("rejects a stale submission back to the author only", async () => {
+  it("rejects an impossible (future) baseVersion back to the author only", async () => {
     const alice = newClient();
     try {
       await once(alice, "connect");
@@ -115,14 +115,16 @@ describe("transport", () => {
       });
       await once<OpAckMessage>(alice, "op:ack");
 
-      // Second edit still claims version 0 -> stale.
+      // A version the server has never issued is impossible, not merely stale;
+      // it is refused rather than rebased. (A behind-version submit would now be
+      // rebased and accepted -- that path is exercised in the core unit tests.)
       const rejectP = once<OpRejectMessage>(alice, "op:reject");
       alice.emit("op:submit", {
         kind: "op:submit",
         roomId: "r2",
         id: "op-2",
         op: { type: "insert", position: 2, text: "c" },
-        baseVersion: 0,
+        baseVersion: 99,
       });
 
       expect(await rejectP).toEqual({
