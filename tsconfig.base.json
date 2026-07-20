@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+
+    // composite is what makes project references work: each package emits a
+    // .tsbuildinfo + .d.ts files, so dependents typecheck against built
+    // declarations instead of re-parsing the dependency's source.
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+
+    "strict": true,
+    // Not implied by strict, but both matter here. Operation arrays get indexed
+    // constantly in the transform code, and `ops[i]` lying about being defined
+    // is exactly the bug class we cannot afford in that file.
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+
+    // Without this, tsc writes JS even for files that failed to typecheck --
+    // so a broken build can still leave runnable-looking output in dist/.
+    "noEmitOnError": true,
+
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}

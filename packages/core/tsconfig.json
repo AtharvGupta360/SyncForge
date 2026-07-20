@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    // No DOM, no @types/node. If someone reaches for `fetch`, `process`, or
+    // `setTimeout` in here, it fails to compile. The purity rule is enforced by
+    // the type system, not by remembering to be disciplined.
+    "types": []
+  },
+  "include": ["src/**/*"],
+  "references": [{ "path": "../shared" }]
+}

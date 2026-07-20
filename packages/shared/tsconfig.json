@@ -1,0 +1,14 @@
+{
+  // Inherits every compiler setting from the repo root (strict mode, target,
+  // composite, etc). Only path config differs per package.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src", // source lives here
+    "outDir": "./dist" // compiled .js + .d.ts land here (gitignored)
+  },
+  "include": ["src/**/*"]
+
+  // No "references" key: shared is the bottom of the dependency graph and
+  // depends on nothing. That is deliberate -- if this package ever needed an
+  // import, the wire contract would have stopped being just a contract.
+}

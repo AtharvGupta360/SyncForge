@@ -1,0 +1,10 @@
+{
+  // Root is a solution file only: it owns no sources, it just tells
+  // `tsc --build` which projects exist and lets it derive build order.
+  "files": [],
+  "references": [
+    { "path": "./packages/shared" },
+    { "path": "./packages/core" },
+    { "path": "./packages/server" }
+  ]
+}

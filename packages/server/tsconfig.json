@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+
+    // The shell is where Node actually exists: process, env vars, timers,
+    // http.Server. Contrast with core/tsconfig.json, which sets "types": []
+    // precisely so none of this is reachable there.
+    "types": ["node"]
+  },
+  "include": ["src/**/*"],
+
+  // Declaring a reference does two things: it tells `tsc --build` to compile
+  // these first, and it grants permission to import them. An import of a
+  // package NOT listed here fails to compile -- which is the mechanism that
+  // keeps the dependency arrows pointing one way (shared -> core -> server)
+  // and makes a circular dependency impossible rather than merely discouraged.
+  "references": [{ "path": "../shared" }, { "path": "../core" }]
+}
