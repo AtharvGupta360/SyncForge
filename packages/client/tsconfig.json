@@ -15,5 +15,5 @@
   // Depends only on the wire contract. The boundary produces `Op`s; it needs no
   // core algorithm and no server. Keeping this reference list minimal is what
   // makes "one file changes if Monaco changes" actually true.
-  "references": [{ "path": "../shared" }]
+  "references": [{ "path": "../shared" }, { "path": "../core" }]
 }

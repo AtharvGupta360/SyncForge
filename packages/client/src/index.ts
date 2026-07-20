@@ -10,3 +10,5 @@
 
 export { changesToOps } from "./boundary.js";
 export type { EditorChange } from "./boundary.js";
+
+export { ClientSession } from "./session.js";

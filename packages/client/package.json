@@ -12,6 +12,7 @@
     }
   },
   "dependencies": {
+    "@syncforge/core": "*",
     "@syncforge/shared": "*"
   }
 }
